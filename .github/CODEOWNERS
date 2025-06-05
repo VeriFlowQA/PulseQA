@@ -2,7 +2,7 @@
 # the repo. Unless a later match takes precedence,
 # @PulseQAQA/PulseQA-QA will be requested for
 # review when someone opens a pull request.
-*                   @VeriFlowQA/PulseQA
+*                   @VeriFlowQA/VeriFlow-QA
 
 # These owners will be the owners for GitHub workflows.
-.github/workflows/*  @VeriFlowQA/PulseQA
+.github/workflows/*  @VeriFlowQA/VeriFlow-QA
