@@ -1,5 +1,5 @@
-name: lesson_19
-description: A Flutter QA automation project.
+name: PulseQA
+description: Flutter QA & Test Automation Framework
 publish_to: "none"
 
 version: 1.0.0+1
