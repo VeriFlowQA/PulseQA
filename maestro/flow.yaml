@@ -1,0 +1,8 @@
+appId: com.atebits.Tweetie2
+name: Twitter iOS - Welcome Screen Test
+---
+- launchApp
+- assertVisible: "Welcome"
+- assertVisible: "Log in"
+- tapOn: "Log in"
+- assertVisible: "Phone, email address or username"

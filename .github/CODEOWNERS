@@ -1,0 +1,8 @@
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# @PulseQAQA/PulseQA-QA will be requested for
+# review when someone opens a pull request.
+*                   @VeriFlowQA/PulseQA
+
+# These owners will be the owners for GitHub workflows.
+.github/workflows/*  @VeriFlowQA/PulseQA

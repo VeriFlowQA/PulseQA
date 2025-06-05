@@ -1,0 +1,219 @@
+name: PulseQA Mobile | Run Regression tests [Multiple Threads]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+run-name: "👷🚧[#${{ github.run_number }}][TESTS] 🌍Env: ${{ (github.event_name == 'schedule' && 'UAT') || github.event.inputs.appEnvironment }} | 🏷️Release: ${{ (github.event_name == 'schedule' && 'latest') || github.event.inputs.appRelease }}"
+
+on:
+  schedule:
+    - cron: "30 4  * * 1-5"
+    - cron: "30 5  * * 1-5"
+    - cron: "30 6  * * 1-5"
+    - cron: "30 7  * * 1-5"
+    - cron: "00 16 * * 1-5"
+    - cron: "00 18 * * 1-5"
+    - cron: "00 20 * * 1-5"
+
+  workflow_dispatch:
+    inputs:
+      appModule:
+        description: "Select the PulseQA application module:"
+        required: true
+        type: choice
+        options: [ "PulseQA_EU" ]
+      appEnvironment:
+        description: "Select the PulseQA application environment:"
+        required: true
+        type: choice
+        options: [ "UAT", "QA", "DEV" ]
+      testGroup:
+        description: "Select the PulseQA test group:"
+        required: true
+        type: choice
+        options: [ "ALL", "REGRESSION", "SMOKE", "EXTRA", "QA" ]
+      devicePlatform:
+        description: "Select the device platform:"
+        required: true
+        type: choice
+        options: [ "android", "ios" ]
+      appRelease:
+        description: "Enter the PulseQA application release:"
+        required: true
+        default: "latest"
+        type: string
+      enableTestRetry:
+        description: "Enable re-run of failing tests?"
+        required: true
+        default: false
+        type: boolean
+      enableXrayImport:
+        description: "Upload test results to Jira XRay?"
+        required: true
+        default: false
+        type: boolean
+      enableSlackReport:
+        description: "Upload test results to Slack?"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: "️Build & Execute Tests 🛠️"
+    defaults:
+      run:
+        working-directory: PulseQA_Mobile
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      APP_MODULE: "DEFAULT"
+      TEST_GROUP: "ALL"
+      PulseQA_APP_MODULES: "PulseQA_EU"
+      APP_ENVIRONMENT: ${{ github.event_name == 'schedule' && 'UAT' || github.event.inputs.appEnvironment }}
+      APP_RELEASE: ${{ github.event_name == 'schedule' && 'latest' || github.event.inputs.appRelease }}
+      DEVICE_PLATFORM: ${{ github.event_name == 'schedule' && 'android' || github.event.inputs.devicePlatform }}
+      ENABLE_TEST_RETRY: ${{ github.event_name == 'schedule' && 'false' || github.event.inputs.enableTestRetry }}
+      ENABLE_XRAY_IMPORT: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.enableXrayImport }}
+      ENABLE_SLACK_REPORT: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.enableSlackReport }}
+      APP_CENTER_TOKEN: ${{ secrets.APP_CENTER_TOKEN }}
+      ENCRYPTION_KEY_ADYEN: ${{ secrets.ENCRYPTION_KEY_ADYEN }}
+      EXTRA_S2S_PASSWORD: ${{ secrets.EXTRA_S2S_PASSWORD }}
+      EXTRA_S2S_USERNAME: ${{ secrets.EXTRA_S2S_USERNAME }}
+      EXTRA_S2S_QA_PASSWORD: ${{ secrets.EXTRA_S2S_QA_PASSWORD }}
+      EXTRA_S2S_QA_USERNAME: ${{ secrets.EXTRA_S2S_QA_USERNAME }}
+      SAUCELABS_ACCESS_KEY: ${{ secrets.SAUCELABS_ACCESS_KEY }}
+      SAUCELABS_USER_NAME: ${{ secrets.SAUCELABS_USER_NAME }}
+      XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+      XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+      DB_KEY: ${{ secrets.DB_KEY }}
+      REDIS_DB_KEY: ${{ secrets.REDIS_DB_KEY }}
+      PERSONAL_GITHUB_KEY: ${{ secrets.PERSONAL_GITHUB_KEY }}
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      CONTENTSTACK_KEY: ${{ secrets.CONTENTSTACK_KEY }}
+      CONTENTSTACK_MANAGEMENT_TOKEN: ${{ secrets.CONTENTSTACK_MANAGEMENT_TOKEN }}
+      CICD: true
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Java"
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: "Cache Gradle packages"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('PulseQA_Mobile/**/*.gradle*', 'PulseQA_Mobile/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: "Grant execute permission for scripts"
+        run: chmod +x ${{ github.workspace }}/.github/scripts/*
+
+      - name: "Determine APP Module & Platform & Env & Group"
+        run: ${{ github.workspace }}/.github/scripts/determine_module.sh
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_INPUTS_MODULE: ${{ github.event.inputs.appModule }}
+          GITHUB_INPUTS_DEVICE_PLATFORM: ${{ github.event.inputs.devicePlatform }}
+          GITHUB_INPUTS_APP_ENVIRONMENT: ${{ github.event.inputs.appEnvironment }}
+          GITHUB_INPUTS_TESTS_GROUP: ${{ github.event.inputs.testGroup }}
+
+      - name: "🚨 Run ${{ env.APP_MODULE }} Mobile Tests on ${{ env.DEVICE_PLATFORM }} 🚨"
+        run: |
+          GRADLE_COMMAND="./gradlew $APP_MODULE:test -Denvironment='BROWSERSTACK' \
+          -DappEnvironment='${{ env.APP_ENVIRONMENT }}' \
+          -DappRelease='${{ env.APP_RELEASE }}' \
+          -DdevicePlatform='${{ env.DEVICE_PLATFORM }}' \
+          -DtestRetry='${{ env.ENABLE_TEST_RETRY }}' \
+          -DtestXrayImport='${{ env.ENABLE_XRAY_IMPORT }}' \
+          -DenableSlackReport='${{ env.ENABLE_SLACK_REPORT }}' \
+          -DtestParallelMode='true' \
+          -DappDownload='true' \
+          -DsauceLabsUpload='true' \
+          -DsaucelabsDelete='true'"
+
+          if [[ "${{ env.TEST_GROUP }}" != "ALL" ]]; then
+            GRADLE_COMMAND="$GRADLE_COMMAND -Dgroups='${{ env.TEST_GROUP }}'"
+          fi
+
+          echo "Executing command: $GRADLE_COMMAND"
+          eval $GRADLE_COMMAND
+        shell: bash
+
+      - name: "Process TestNG results"
+        run: ${{ github.workspace }}/.github/scripts/process_testng_results.sh
+        env:
+          PulseQA_APP_MODULES: ${{ env.APP_MODULE }}
+
+      - name: "Upload TestNG results artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-modules-testng-reports
+          path: PulseQA_Mobile/artifacts/
+          retention-days: 5
+
+      - name: "Upload Allure Report results artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: PulseQA_Mobile/${{ env.APP_MODULE }}/build/allure-results
+          retention-days: 5
+
+  publish-report:
+    needs: build
+    runs-on: ubuntu-latest
+    name: "Generate Allure Report 📊"
+    steps:
+      - name: "Download Allure Report results artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: "Load Allure Report history"
+        if: github.ref == 'refs/heads/master' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - name: "Build Allure Report"
+        if: github.ref == 'refs/heads/master' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: simple-elf/allure-report-action@master
+        with:
+          gh_pages: gh-pages
+          allure_history: allure-history
+          allure_results: allure-results
+          keep_reports: 20
+
+      - name: "Publish Allure Report"
+        if: github.ref == 'refs/heads/master' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+          commit_message: "🤖Automated deployment of Allure Report | ${{ github.run_number }}"
+
+  cleanup:
+    needs: publish-report
+    runs-on: ubuntu-latest
+    name: "Cleanup 🗑️"
+    permissions: write-all
+    steps:
+      - name: "Delete GitHub Pages deployments"
+        uses: strumwolf/delete-deployment-environment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: github-pages
+          onlyRemoveDeployments: true

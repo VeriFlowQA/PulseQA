@@ -1,0 +1,7 @@
+addAssignees: author
+addReviewers: true
+reviewers:
+  - PulseQAQA/PulseQA-QA
+filterLabels:
+  exclude:
+    - build-failure

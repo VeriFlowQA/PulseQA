@@ -1,0 +1,103 @@
+name: PulseQA | PR
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+run-name: '👷🚧[#${{ github.run_number }}][PulseQA PR]'
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Convert PR created time to CET
+        id: pr-time
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const createdUTC = new Date('${{ github.event.pull_request.created_at }}');
+            const cetOffsetMs = 2 * 60 * 60 * 1000; // UTC+2
+            const createdCET = new Date(createdUTC.getTime() + cetOffsetMs);
+            const options = { 
+              weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', 
+              hour: '2-digit', minute: '2-digit', hour12: false 
+            };
+            return createdCET.toLocaleString('en-GB', options).replace(',', '');
+          result-encoding: string
+
+      - name: Post PR details to Slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.PR_SLACK_BOT_TOKEN }}
+        run: |
+          curl -X POST https://slack.com/api/chat.postMessage \
+          -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data "$(jq -n \
+            --arg title "${{ github.event.pull_request.title }}" \
+            --arg url "${{ github.event.pull_request.html_url }}" \
+            --arg author "${{ github.event.pull_request.user.login }}" \
+            --arg head "${{ github.event.pull_request.head.ref }}" \
+            --arg base "${{ github.event.pull_request.base.ref }}" \
+            --arg prNumber "#${{ github.event.pull_request.number }}" \
+            --arg createdAt "${{ steps.pr-time.outputs.result }}" \
+            --arg runUrl "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              channel: "#PulseQA-automation",
+              text: "<!here>",
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "<!here>\n*Repository:* <https://github.com/${{ github.repository }}|PulseQA>\n*PR created:* \($createdAt)\n*Author:* `\($author)`\n*Branches:* `\($head)` → `\($base)`\n*PR Number:* \($prNumber)"
+                  },
+                  accessory: {
+                    type: "image",
+                    image_url: "https://iili.io/3c5T6LF.jpg",
+                    alt_text: "PulseQA Logo"
+                  }
+                },
+                { "type": "divider" },
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: ":memo: *<\($url)|\($title)>*"
+                  }
+                },
+                { "type": "divider" },
+                {
+                  type: "actions",
+                  elements: [
+                    {
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "📄 View PR",
+                        emoji: true
+                      },
+                      url: $url,
+                      style: "primary"
+                    },
+                    {
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "⚙️ View Workflow",
+                        emoji: true
+                      },
+                      url: $runUrl
+                    }
+                  ]
+                }
+              ]
+            }')"

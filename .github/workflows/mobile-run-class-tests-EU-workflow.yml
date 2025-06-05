@@ -1,0 +1,156 @@
+name: PulseQA Mobile | Run Class tests EU
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+run-name: '👷🚧[#${{ github.run_number }}][${{ github.event.inputs.testConfig }} Tests] 🌍Env: ${{ github.event.inputs.appEnvironment }} | 🏷️Release: ${{ github.event.inputs.appRelease }} | 📱Device: ${{ github.event.inputs.deviceConfig }}'
+
+on:
+  workflow_dispatch:
+    inputs:
+      appEnvironment:
+        description: "Select the PulseQA application environment:"
+        required: true
+        type: choice
+        options: [ "UAT", "QA", "DEV" ]
+      appRelease:
+        description: "Enter the PulseQA application release:"
+        required: true
+        default: "latest"
+        type: string
+      testConfig:
+        description: "Select the PulseQA Tests"
+        required: true
+        type: choice
+        options:
+          - "Account"
+          - "Car Wash Subscription"
+          - "Car Wash"
+          - "ExtraTier3SE"
+          - "ExtraTier3NO"
+          - "ExtraTier2SE"
+          - "ExtraTier2NO"
+          - "ExtraTier1SE"
+          - "ExtraTier1NO"
+          - "Fuelling"
+          - "Gift Card"
+          - "Onboarding"
+          - "Other Features"
+          - "Pay By Plate"
+          - "Subscriptions Purchasing"
+      deviceConfig:
+        description: "Select the device config:"
+        required: true
+        type: choice
+        options:
+          - "GooglePixel4XL"
+          - "GalaxyS23Ultra"
+          - "GalaxyS22"
+          - "GalaxyS20"
+          - "GalaxyS20FE"
+          - "GalaxyS22Ultra"
+          - "GalaxyS21"
+          - "GalaxyS20Ultra"
+          - "GalaxyS10"
+          - "iPhone14Pro"
+          - "iPhone15ProMax"
+          - "iPhone13"
+          - "iPhone14"
+          - "iPhone15Pro"
+          - "iPhone13Mini"
+          - "iPhone13ProMax"
+          - "iPhone13Pro"
+          - "iPhone12Pro"
+          - "iPhone15"
+      devicePlatform:
+        description: "Select the device platform:"
+        required: true
+        type: choice
+        options: [ "android", "ios" ]
+      enableTestRetry:
+        description: "Enable re-run of failing tests?"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: '️Build & Execute Tests 🛠️'
+    defaults:
+      run:
+        working-directory: PulseQA_Mobile
+    env:
+      APP_CENTER_TOKEN: ${{ secrets.APP_CENTER_TOKEN }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      ENCRYPTION_KEY_ADYEN: ${{ secrets.ENCRYPTION_KEY_ADYEN }}
+      EXTRA_S2S_PASSWORD: ${{ secrets.EXTRA_S2S_PASSWORD }}
+      EXTRA_S2S_USERNAME: ${{ secrets.EXTRA_S2S_USERNAME }}
+      EXTRA_S2S_QA_PASSWORD: ${{ secrets.EXTRA_S2S_QA_PASSWORD }}
+      EXTRA_S2S_QA_USERNAME: ${{ secrets.EXTRA_S2S_QA_USERNAME }}
+      SAUCELABS_ACCESS_KEY: ${{ secrets.SAUCELABS_ACCESS_KEY }}
+      SAUCELABS_USER_NAME: ${{ secrets.SAUCELABS_USER_NAME }}
+      XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+      XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+      DB_KEY: ${{ secrets.DB_KEY }}
+      REDIS_DB_KEY: ${{ secrets.REDIS_DB_KEY }}
+      PERSONAL_GITHUB_KEY: ${{ secrets.PERSONAL_GITHUB_KEY }}
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      CONTENTSTACK_KEY: ${{ secrets.CONTENTSTACK_KEY }}
+      CONTENTSTACK_MANAGEMENT_TOKEN: ${{ secrets.CONTENTSTACK_MANAGEMENT_TOKEN }}
+      CICD: true
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Java"
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: "Cache Gradle packages"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('PulseQA_Mobile/**/*.gradle*', 'PulseQA_Mobile/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: "🚨 Run PulseQA Mobile Tests 🚨"
+        run: |
+          TEST_CONFIG="${{ github.event.inputs.testConfig }}"
+          TEST_CONFIG="${TEST_CONFIG// /}Tests"
+
+          GRADLE_COMMAND="./gradlew PulseQA_EU:test --tests 'testcases.${TEST_CONFIG}' \
+          -Denvironment='BROWSERSTACK' \
+          -DappEnvironment='${{ github.event.inputs.appEnvironment }}' \
+          -DappRelease='${{ github.event.inputs.appRelease }}' \
+          -DdeviceConfig='${{ github.event.inputs.deviceConfig }}' \
+          -DdevicePlatform='${{ github.event.inputs.devicePlatform }}' \
+          -DtestRetry='${{ github.event.inputs.enableTestRetry }}' \
+          -DappDownload='true' \
+          -DsauceLabsUpload='true' \
+          -DsaucelabsDelete='true'"
+
+          echo "Executing command: $GRADLE_COMMAND"
+          eval $GRADLE_COMMAND
+        shell: bash
+
+      - name: "Upload TestNG results artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: testng-report
+          path: PulseQA_Mobile/PulseQA_EU/build/reports/tests/test
+          retention-days: 5
+
+      - name: "Upload Allure Report results artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: PulseQA_Mobile/PulseQA_EU/build/allure-results
+          retention-days: 5

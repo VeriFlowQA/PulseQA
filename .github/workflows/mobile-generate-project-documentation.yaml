@@ -1,0 +1,48 @@
+name: PulseQA Mobile | Generate Project Documentation
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+run-name: "👷🚧[#${{ github.run_number }}][Documentation] Generating JavaDoc for PulseQA_Mobile"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    name: "Generate Project Documentation 📚"
+    defaults:
+      run:
+        working-directory: PulseQA_Mobile
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Java"
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: "Cache Gradle packages"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('PulseQA_Mobile/**/*.gradle*', 'PulseQA_Mobile/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: "Generate JavaDoc"
+        run: ./gradlew javadoc
+
+      - name: "Upload JavaDoc artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseQA-mobile-javadoc
+          path: |
+            build/docs/javadoc
+          retention-days: 30

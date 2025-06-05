@@ -1,0 +1,53 @@
+name: PulseQA | Delete Runs
+
+run-name: '🗑️[#${{ github.run_number }}] PulseQA Cleanup'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'  # Runs at 4 AM CET / 3 AM UTC every day  
+
+jobs:
+  delete-failed-and-cancelled-runs:
+    runs-on: ubuntu-latest
+    name: 'PulseQA | Delete Runs 🗑️'
+
+    steps:
+      - name: 🛠️ Install GitHub CLI and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          type -p curl >/dev/null || sudo apt install curl -y
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+            sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+            sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install gh -y
+
+      - name: 🔐 Authenticate GitHub CLI with GITHUB_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      - name: 🗑️ Delete failed and cancelled workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Fetching failed workflow runs..."
+          gh run list --limit 1000 --repo PulseQAQA/PulseQA --json databaseId,conclusion | \
+          jq -r '.[] | select(.conclusion == "failure") | .databaseId' | \
+          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo PulseQAQA/PulseQA"
+
+          echo "🔍 Fetching failed workflow runs..."
+          gh run list --limit 1000 --repo PulseQAQA/PulseQA --json databaseId,conclusion | \
+          jq -r '.[] | select(.conclusion == "cancelled") | .databaseId' | \
+          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo PulseQAQA/PulseQA"

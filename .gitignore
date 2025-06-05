@@ -1,0 +1,43 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Recommended for code clarity
+    always_declare_return_types: true
+    always_put_control_body_on_new_line: true
+    always_put_required_named_parameters_first: true
+    annotate_overrides: true
+    avoid_print: true
+    avoid_unnecessary_containers: true
+    curly_braces_in_flow_control_structures: true
+    prefer_const_constructors: true
+    prefer_final_locals: true
+    use_key_in_widget_constructors: true
+
+    # QA/test-specific
+    avoid_empty_else: true
+    empty_statements: true
+    prefer_const_declarations: true
+    avoid_returning_null_for_future: true
+    avoid_types_on_closure_parameters: false
+
+    # Useful for debugging but warn you
+    avoid_print: true
+    prefer_interpolation_to_compose_strings: true
+
+    # For test readability
+    lines_longer_than_80_chars: false
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+    - "test/testdata/**"
+    - "**/*.gen.dart"
+
+  errors:
+    todo: warning
+    deprecated_member_use: warning
+    missing_return: error
+    unused_import: error
