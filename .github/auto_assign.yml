@@ -1,7 +1,7 @@
 addAssignees: author
 addReviewers: true
 reviewers:
-  - PulseQAQA/PulseQA-QA
+  - VeriFlowQA/PulseQA
 filterLabels:
   exclude:
     - build-failure
