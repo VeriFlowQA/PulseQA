@@ -43,11 +43,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🔍 Fetching failed workflow runs..."
-          gh run list --limit 1000 --repo PulseQAQA/PulseQA --json databaseId,conclusion | \
+          gh run list --limit 1000 --repo VeriFlowQA/PulseQA --json databaseId,conclusion | \
           jq -r '.[] | select(.conclusion == "failure") | .databaseId' | \
-          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo PulseQAQA/PulseQA"
+          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo VeriFlowQA/PulseQA"
 
           echo "🔍 Fetching failed workflow runs..."
-          gh run list --limit 1000 --repo PulseQAQA/PulseQA --json databaseId,conclusion | \
+          gh run list --limit 1000 --repo VeriFlowQA/PulseQA --json databaseId,conclusion | \
           jq -r '.[] | select(.conclusion == "cancelled") | .databaseId' | \
-          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo PulseQAQA/PulseQA"
+          xargs -n1 -I {} sh -c "yes | gh run delete {} --repo VeriFlowQA/PulseQA"
