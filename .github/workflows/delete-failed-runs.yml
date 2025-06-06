@@ -1,6 +1,6 @@
 name: PulseQA | Delete Runs
 
-run-name: '🗑️[#${{ github.run_number }}] PulseQA Cleanup'
+run-name: '🗑️[#${{ github.run_number }}] Cleanup'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
