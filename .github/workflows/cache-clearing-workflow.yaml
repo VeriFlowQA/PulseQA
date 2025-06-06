@@ -5,7 +5,6 @@ run-name: '👷🚧[#${{ github.run_number }}][Maintenance] Clearing all GitHub 
 on:
   schedule:
     - cron: '00 16 * * 5' # 16:00 UTC (Sweden: 18:00 Mar-Oct, 17:00 Oct-Mar)
-
   workflow_dispatch:
 
 jobs:
@@ -22,6 +21,13 @@ jobs:
 
       - name: 'Clear GitHub Actions caches'
         run: |
+          echo "Authenticating GitHub CLI..."
           gh auth login --with-token <<< "${{ secrets.PERSONAL_GITHUB_KEY }}"
-          gh cache delete --all --repo VeriFlowQA/PulseQA
+          
+          echo "Attempting to delete all caches..."
+          if ! gh cache delete --all --repo VeriFlowQA/PulseQA; then
+            echo "⚠️ No caches found or an error occurred during deletion, continuing anyway."
+          else
+            echo "✅ GitHub Action caches cleared successfully."
+          fi
         shell: bash
