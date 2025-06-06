@@ -23,11 +23,19 @@ jobs:
         run: |
           echo "Authenticating GitHub CLI..."
           gh auth login --with-token <<< "${{ secrets.PERSONAL_GITHUB_KEY }}"
-          
+
           echo "Attempting to delete all caches..."
-          if ! gh cache delete --all --repo VeriFlowQA/PulseQA; then
-            echo "⚠️ No caches found or an error occurred during deletion, continuing anyway."
+          output=$(gh cache delete --all --repo VeriFlowQA/PulseQA 2>&1) || status=$?
+          
+          if [[ "$output" == *"no caches found"* ]]; then
+            echo "ℹ️ No caches found. Skipping error."
+            exit 0
+          elif [[ -n "$status" ]]; then
+            echo "$output"
+            echo "❌ Cache deletion failed with error."
+            exit $status
           else
+            echo "$output"
             echo "✅ GitHub Action caches cleared successfully."
           fi
         shell: bash
